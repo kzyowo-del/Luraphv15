@@ -1,8 +1,11 @@
 [phases.setup]
-nixPkgs = ["python311", "cmake", "gcc", "gnumake", "ninja", "git"]
+nixPkgs = ["nodejs_20", "python311", "cmake", "gcc", "gnumake", "ninja", "git"]
+
+[phases.install]
+cmds = ["npm install"]
 
 [phases.build]
-cmds = ["npm install", "python3 core/build_luau.py --portable || echo 'luau build attempted'"]
+cmds = ["python3 core/build_luau.py --portable || echo 'luau build attempted'"]
 
 [start]
 cmd = "node server.js"
