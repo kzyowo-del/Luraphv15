@@ -41,15 +41,24 @@ app.post('/api/deobfuscate', async (req, res) => {
   try {
     fs.writeFileSync(inputPath, source, 'latin1');
 
-    const args = [path.join(__dirname, 'deob.js'), inputPath, '-o', outputPath];
+    const args = [
+      path.join(__dirname, 'deob.js'),
+      inputPath,
+      '-o', outputPath,
+    ];
     if (mode === 'trace') args.push('--no-devirt');
 
-    const timeout = mode === 'trace' ? 15000 : 180000;
+    // Tăng timeout lên 10 phút
+    const timeout = mode === 'trace' ? 60000 : 600000;
+
+    // Keep-alive để Railway không kill connection
+    res.setHeader('Content-Type', 'application/json');
+    const keepAlive = setInterval(() => {}, 5000);
 
     const result = await new Promise((resolve, reject) => {
       execFile(process.execPath, args, {
         timeout,
-        maxBuffer: 10 * 1024 * 1024,
+        maxBuffer: 20 * 1024 * 1024,
       }, (err, stdout, stderr) => {
         if (err && !fs.existsSync(outputPath)) {
           reject(new Error(stderr || err.message));
@@ -58,6 +67,8 @@ app.post('/api/deobfuscate', async (req, res) => {
         }
       });
     });
+
+    clearInterval(keepAlive);
 
     if (!fs.existsSync(outputPath)) {
       return res.status(500).json({ error: 'No output generated', log: result.stderr });
