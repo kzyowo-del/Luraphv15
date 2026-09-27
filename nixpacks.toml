@@ -4,7 +4,7 @@ nixPkgs = ["nodejs", "python3", "unzip", "curl"]
 [phases.build]
 cmds = [
   "npm install",
-  "pip3 install zstandard --break-system-packages",
+  "python3 -m pip install zstandard --break-system-packages",
   "mkdir -p bin",
   "curl -sL https://github.com/luau-lang/luau/releases/download/0.639/luau-ubuntu.zip -o /tmp/luau.zip",
   "unzip -o /tmp/luau.zip -d bin/",
