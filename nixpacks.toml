@@ -1,13 +1,8 @@
 [phases.setup]
-nixPkgs = ["nodejs", "python3", "cmake", "gcc"]
+nixPkgs = ["nodejs", "python3", "git", "cmake", "gcc"]
 
-[phases.install]
-cmds = [
-  "npm install",
-  "python3 -m venv /app/venv",
-  "/app/venv/bin/pip install zstandard",
-  "/app/venv/bin/pip install ./luauvmp-engine/luau-vmp-deobf-main --no-deps"
-]
+[phases.build]
+cmds = ["npm install", "python3 core/build_luau.py"]
 
 [start]
 cmd = "node server.js"
