@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs", "python312", "python312Packages.zstandard", "unzip", "curl"]
+nixPkgs = ["nodejs", "python3", "unzip", "curl"]
 
 [phases.build]
 cmds = [
@@ -7,7 +7,9 @@ cmds = [
   "mkdir -p bin",
   "curl -sL https://github.com/luau-lang/luau/releases/download/0.639/luau-ubuntu.zip -o /tmp/luau.zip",
   "unzip -o /tmp/luau.zip -d bin/",
-  "chmod +x bin/luau bin/luau-ast"
+  "chmod +x bin/luau bin/luau-ast",
+  "python3 -m venv venv",
+  "venv/bin/pip install zstandard"
 ]
 
 [start]
