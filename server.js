@@ -31,7 +31,7 @@ app.post('/api/detect', (req, res) => {
 // ── V14 engine via luauvmp ──────────────────────────────────────────────────
 function runV14(inputPath, outputDir) {
   return new Promise((resolve, reject) => {
-    const proc = spawn('python3', [
+    const proc = spawn('/app/venv/bin/python3', [
       '-m', 'luauvmp',
       'luraph',
       inputPath,
@@ -79,7 +79,7 @@ print('v14' if detect(src) else 'v15')
     const tmpScript = path.join(os.tmpdir(), '_detect_v14.py');
     fs.writeFileSync(tmpScript, script);
 
-    const proc = spawn('python3', [tmpScript, inputPath], {
+    const proc = spawn('/app/venv/bin/python3', [tmpScript, inputPath], {
       cwd: path.join(__dirname, 'luauvmp-engine', 'luau-vmp-deobf-main'),
     });
 
