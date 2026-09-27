@@ -2,346 +2,251 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Luraph V15 Deobfuscator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Luraph Deobfuscator</title>
 <style>
-  :root {
-    --bg: #0d0f12;
-    --surface: #161920;
-    --surface2: #1e2229;
-    --border: #2a2f3a;
-    --accent: #5b8af5;
-    --accent2: #3d6de8;
-    --success: #3ecf8e;
-    --danger: #f56565;
-    --warn: #f6ad55;
-    --text: #e8ecf4;
-    --muted: #6b7280;
-    --mono: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
+:root {
+  --bg: #080a0e;
+  --surface: #0f1117;
+  --surface2: #161b24;
+  --surface3: #1c2333;
+  --border: #1e2840;
+  --border2: #263050;
+  --accent: #4f8ef7;
+  --accent2: #3b72e0;
+  --accent-glow: rgba(79,142,247,0.18);
+  --success: #2ecc8e;
+  --success-glow: rgba(46,204,142,0.15);
+  --danger: #f55656;
+  --warn: #f5a623;
+  --v14: #b06cf5;
+  --v14-glow: rgba(176,108,245,0.15);
+  --text: #dde4f0;
+  --muted: #5a6478;
+  --muted2: #3d4558;
+  --mono: 'Fira Code','Cascadia Code','Consolas',monospace;
+  --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── HEADER ── */
+header{
+  padding:14px 20px;
+  border-bottom:1px solid var(--border);
+  background:rgba(8,10,14,0.92);
+  backdrop-filter:blur(12px);
+  display:flex;align-items:center;gap:12px;
+  position:sticky;top:env(safe-area-inset-top,0);z-index:20;
+}
+.logo{
+  width:34px;height:34px;flex-shrink:0;
+  background:linear-gradient(135deg,#4f8ef7,#9b59f5);
+  border-radius:9px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;box-shadow:0 0 16px rgba(79,142,247,0.3);
+}
+.header-title{font-size:15px;font-weight:700;letter-spacing:-0.02em}
+.header-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.header-badges{margin-left:auto;display:flex;gap:6px;align-items:center}
+.badge{
+  font-size:10px;font-weight:700;letter-spacing:0.04em;
+  border-radius:20px;padding:3px 9px;white-space:nowrap;
+}
+.badge-v15{background:rgba(79,142,247,0.12);color:var(--accent);border:1px solid rgba(79,142,247,0.25)}
+.badge-v14{background:rgba(176,108,245,0.12);color:var(--v14);border:1px solid rgba(176,108,245,0.25)}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-  }
+/* ── MAIN LAYOUT ── */
+main{
+  flex:1;padding:16px;
+  display:flex;flex-direction:column;gap:12px;
+  max-width:960px;width:100%;margin:0 auto;
+}
 
-  header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
+/* ── SPLIT VIEW (desktop) ── */
+.split{display:flex;flex-direction:column;gap:12px}
+@media(min-width:700px){
+  .split{flex-direction:row;align-items:stretch}
+  .split > .card{flex:1;min-width:0}
+}
 
-  .logo {
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, var(--accent), #9b59f5);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    flex-shrink: 0;
-  }
+/* ── CARD ── */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.card-header{
+  padding:11px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted)}
 
-  .header-title {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
+/* ── DETECT BADGE ── */
+.detect-badge{
+  margin-left:auto;font-size:11px;padding:2px 9px;
+  border-radius:20px;font-weight:600;
+  opacity:0;transition:opacity 0.2s,background 0.2s;
+}
+.detect-badge.show{opacity:1}
+.detect-badge.v15{background:rgba(79,142,247,0.12);color:var(--accent);border:1px solid rgba(79,142,247,0.25)}
+.detect-badge.v14{background:rgba(176,108,245,0.12);color:var(--v14);border:1px solid rgba(176,108,245,0.25)}
+.detect-badge.unknown{background:rgba(245,166,35,0.1);color:var(--warn);border:1px solid rgba(245,166,35,0.25)}
 
-  .header-sub {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 1px;
-  }
+/* ── DROPZONE ── */
+.dropzone{
+  position:relative;flex:1;display:flex;flex-direction:column;
+  transition:background 0.15s;
+}
+.dropzone.drag-over{background:rgba(79,142,247,0.06)}
+.dropzone.drag-over::after{
+  content:'Drop file Lua/Luau ở đây';
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:600;color:var(--accent);
+  border:2px dashed var(--accent);border-radius:0 0 14px 14px;
+  background:rgba(8,10,14,0.85);pointer-events:none;z-index:5;
+}
 
-  .badge {
-    margin-left: auto;
-    font-size: 10px;
-    font-weight: 600;
-    background: rgba(91, 138, 245, 0.15);
-    color: var(--accent);
-    border: 1px solid rgba(91, 138, 245, 0.3);
-    border-radius: 20px;
-    padding: 2px 8px;
-    white-space: nowrap;
-  }
+/* ── TEXTAREA ── */
+textarea{
+  flex:1;width:100%;min-height:200px;
+  background:transparent;border:none;outline:none;
+  color:var(--text);font-family:var(--mono);
+  font-size:12px;line-height:1.65;resize:none;
+  padding:14px 16px;display:block;
+}
+textarea::placeholder{color:var(--muted2)}
 
-  main {
-    flex: 1;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-width: 900px;
-    width: 100%;
-    margin: 0 auto;
-  }
+/* ── ACTIONS BAR ── */
+.actions{
+  padding:10px 14px;border-top:1px solid var(--border);
+  display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex-shrink:0;
+}
+.btn{
+  display:flex;align-items:center;gap:5px;
+  padding:7px 13px;border-radius:8px;
+  font-size:12px;font-weight:600;cursor:pointer;
+  border:none;transition:all 0.15s;font-family:var(--sans);
+  white-space:nowrap;
+}
+.btn-primary{background:var(--accent);color:#fff;flex:1;justify-content:center}
+.btn-primary:hover:not(:disabled){background:var(--accent2);box-shadow:0 0 16px var(--accent-glow)}
+.btn-primary:disabled{opacity:0.45;cursor:not-allowed}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-ghost{background:transparent;color:var(--muted);padding:7px 9px}
+.btn-ghost:hover{color:var(--text);background:var(--surface2);border-radius:8px}
+.btn-success{background:rgba(46,204,142,0.12);color:var(--success);border:1px solid rgba(46,204,142,0.25)}
+.btn-success:hover{background:rgba(46,204,142,0.2)}
 
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-  }
+/* ── MODE TOGGLE ── */
+.mode-toggle{
+  display:flex;border:1px solid var(--border2);
+  border-radius:8px;overflow:hidden;margin-left:auto;
+}
+.mode-btn{
+  padding:5px 11px;font-size:11px;font-weight:600;
+  cursor:pointer;border:none;background:transparent;
+  color:var(--muted);font-family:var(--sans);transition:all 0.15s;
+}
+.mode-btn.active{background:var(--accent);color:#fff}
 
-  .card-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
+/* ── OUTPUT ── */
+.output-area{flex:1;display:flex;flex-direction:column;min-height:200px;position:relative}
+.output-placeholder{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  color:var(--muted);font-size:13px;gap:10px;padding:30px;text-align:center;
+}
+.output-placeholder svg{opacity:0.2}
+.output-text{
+  flex:1;overflow-y:auto;
+  padding:14px 16px;
+  font-family:var(--mono);font-size:12px;line-height:1.65;
+  color:var(--text);white-space:pre-wrap;word-break:break-all;
+  display:none;
+}
 
-  .card-title {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-  }
+/* ── STATUS BAR ── */
+.status-bar{
+  padding:9px 14px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  font-size:11px;color:var(--muted);min-height:36px;flex-shrink:0;
+}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.status-dot.running{background:var(--accent);animation:pulse 1s infinite}
+.status-dot.done{background:var(--success)}
+.status-dot.error{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.2}}
 
-  .detect-badge {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-weight: 500;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-  .detect-badge.show { opacity: 1; }
-  .detect-badge.luraph { background: rgba(62,207,142,0.15); color: var(--success); border: 1px solid rgba(62,207,142,0.3); }
-  .detect-badge.unknown { background: rgba(246,173,85,0.15); color: var(--warn); border: 1px solid rgba(246,173,85,0.3); }
+/* ── SPINNER ── */
+.spinner{
+  width:13px;height:13px;border-radius:50%;flex-shrink:0;
+  border:2px solid rgba(255,255,255,0.12);
+  border-top-color:#fff;animation:spin 0.65s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-  textarea {
-    width: 100%;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.6;
-    resize: none;
-    padding: 14px 16px;
-    min-height: 180px;
-    display: block;
-  }
+/* ── STATS ROW ── */
+.stats-row{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.stat-chip{
+  font-size:10px;padding:2px 7px;border-radius:6px;
+  background:var(--surface2);color:var(--muted);border:1px solid var(--border);
+}
+.stat-chip.v{color:var(--success);background:var(--success-glow);border-color:rgba(46,204,142,0.2)}
 
-  textarea::placeholder { color: var(--muted); }
+/* ── LOG ── */
+.log-area{
+  font-family:var(--mono);font-size:10px;color:var(--muted);
+  padding:8px 14px;border-top:1px solid var(--border);
+  max-height:80px;overflow-y:auto;white-space:pre-wrap;
+  word-break:break-all;display:none;
+}
+.log-area.show{display:block}
 
-  .actions {
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
+/* ── INFO CARD ── */
+.info-card{padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.8}
+.info-card strong{color:var(--text);display:block;margin-bottom:6px;font-size:13px}
+.info-row{display:flex;gap:6px;align-items:baseline;margin-bottom:2px}
+.info-label{
+  font-size:10px;font-weight:700;padding:1px 7px;border-radius:5px;
+  white-space:nowrap;flex-shrink:0;
+}
+.lbl-v15{background:rgba(79,142,247,0.12);color:var(--accent)}
+.lbl-v14{background:rgba(176,108,245,0.12);color:var(--v14)}
+.lbl-full{background:rgba(46,204,142,0.1);color:var(--success)}
+.lbl-trace{background:rgba(245,166,35,0.1);color:var(--warn)}
 
-  .btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-    transition: all 0.15s;
-    font-family: var(--sans);
-    white-space: nowrap;
-  }
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:var(--surface3);border:1px solid var(--border2);
+  color:var(--text);padding:9px 18px;border-radius:24px;
+  font-size:12px;transition:transform 0.25s cubic-bezier(.22,.68,0,1.2);
+  z-index:100;white-space:nowrap;pointer-events:none;
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
 
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-    flex: 1;
-    justify-content: center;
-  }
-  .btn-primary:hover:not(:disabled) { background: var(--accent2); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ── FILE INPUT HIDDEN ── */
+#fileInput{display:none}
 
-  .btn-secondary {
-    background: var(--surface2);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--muted);
-    padding: 8px 10px;
-  }
-  .btn-ghost:hover { color: var(--text); background: var(--surface2); }
-
-  .mode-toggle {
-    display: flex;
-    gap: 0;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    margin-left: auto;
-  }
-
-  .mode-btn {
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font-family: var(--sans);
-    transition: all 0.15s;
-  }
-  .mode-btn.active {
-    background: var(--accent);
-    color: #fff;
-  }
-
-  .output-area {
-    position: relative;
-  }
-
-  .output-text {
-    width: 100%;
-    min-height: 200px;
-    max-height: 60vh;
-    overflow-y: auto;
-    padding: 14px 16px;
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.6;
-    color: var(--text);
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-
-  .output-placeholder {
-    color: var(--muted);
-    font-family: var(--sans);
-    font-size: 13px;
-    text-align: center;
-    padding: 40px 20px;
-  }
-
-  .output-placeholder svg {
-    margin: 0 auto 12px;
-    display: block;
-    opacity: 0.3;
-  }
-
-  .status-bar {
-    padding: 10px 16px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    color: var(--muted);
-    min-height: 38px;
-  }
-
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--muted);
-    flex-shrink: 0;
-  }
-  .status-dot.running {
-    background: var(--accent);
-    animation: pulse 1s infinite;
-  }
-  .status-dot.done { background: var(--success); }
-  .status-dot.error { background: var(--danger); }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  .spinner {
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(255,255,255,0.15);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    flex-shrink: 0;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .copy-btn {
-    margin-left: auto;
-  }
-
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 18px;
-    border-radius: 24px;
-    font-size: 13px;
-    transition: transform 0.25s cubic-bezier(.22,.68,0,1.2);
-    z-index: 100;
-    white-space: nowrap;
-  }
-  .toast.show { transform: translateX(-50%) translateY(0); }
-
-  .stats-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .stat-chip {
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: var(--surface2);
-    color: var(--muted);
-    border: 1px solid var(--border);
-  }
-
-  .log-area {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    padding: 10px 16px;
-    border-top: 1px solid var(--border);
-    max-height: 100px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-    display: none;
-  }
-  .log-area.show { display: block; }
-
-  @media (min-width: 600px) {
-    main { padding: 20px; gap: 16px; }
-    textarea { min-height: 220px; }
-  }
+@media(min-width:700px){
+  main{padding:20px;gap:16px}
+  textarea{min-height:260px}
+  .output-area{min-height:260px}
+}
 </style>
 </head>
 <body>
@@ -350,138 +255,192 @@
   <div class="logo">🔓</div>
   <div>
     <div class="header-title">Luraph Deobfuscator</div>
-    <div class="header-sub">Luraph V15 · Roblox Luau</div>
+    <div class="header-sub">V14.x · V15 · Roblox Luau</div>
   </div>
-  <span class="badge">V15</span>
+  <div class="header-badges">
+    <span class="badge badge-v14">V14</span>
+    <span class="badge badge-v15">V15</span>
+  </div>
 </header>
 
 <main>
-  <!-- Input -->
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Input Script</span>
-      <div class="detect-badge" id="detectBadge">—</div>
-    </div>
-    <textarea id="inputScript" placeholder="Dán script Luraph V15 được bảo vệ vào đây..." spellcheck="false"></textarea>
-    <div class="actions">
-      <button class="btn btn-ghost" onclick="clearInput()" title="Xóa">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
-      </button>
-      <button class="btn btn-ghost" onclick="pasteInput()" title="Paste">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M8 4a2 2 0 012-2h4a2 2 0 012 2M8 4h8"/></svg>
-      </button>
-      <div class="mode-toggle">
-        <button class="mode-btn active" id="modeFullBtn" onclick="setMode('full')">Full</button>
-        <button class="mode-btn" id="modeTraceBtn" onclick="setMode('trace')">Trace</button>
+  <div class="split">
+    <!-- INPUT CARD -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Input Script</span>
+        <div class="detect-badge" id="detectBadge"></div>
       </div>
-      <button class="btn btn-primary" id="runBtn" onclick="runDeobf()">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z" fill="currentColor" stroke="none"/></svg>
-        Deobfuscate
-      </button>
+
+      <div class="dropzone" id="dropzone">
+        <textarea id="inputScript"
+          placeholder="Dán script Luraph V14/V15 vào đây&#10;hoặc kéo thả file .lua / .luau"
+          spellcheck="false"></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="clearInput()" title="Xóa input">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+        </button>
+        <button class="btn btn-ghost" onclick="triggerFileOpen()" title="Mở file">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </button>
+        <button class="btn btn-ghost" onclick="pasteInput()" title="Paste clipboard">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="modeFullBtn" onclick="setMode('full')">Full</button>
+          <button class="mode-btn" id="modeTraceBtn" onclick="setMode('trace')">Trace</button>
+        </div>
+        <button class="btn btn-primary" id="runBtn" onclick="runDeobf()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+          Run
+        </button>
+      </div>
+    </div>
+
+    <!-- OUTPUT CARD -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Output</span>
+        <div class="stats-row" id="statsRow" style="display:none"></div>
+      </div>
+
+      <div class="output-area">
+        <div class="output-placeholder" id="outputPlaceholder">
+          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+          </svg>
+          Kết quả hiển thị ở đây
+        </div>
+        <pre class="output-text" id="outputText"></pre>
+      </div>
+
+      <div class="log-area" id="logArea"></div>
+
+      <div class="status-bar">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Sẵn sàng</span>
+        <div style="display:flex;gap:6px;margin-left:auto" id="outputActions" style="display:none">
+          <button class="btn btn-ghost" id="copyBtn" onclick="copyOutput()" style="display:none;padding:4px 8px">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copy
+          </button>
+          <button class="btn btn-ghost" id="dlBtn" onclick="downloadOutput()" style="display:none;padding:4px 8px">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Output -->
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Output</span>
-      <div class="stats-row" id="statsRow" style="display:none"></div>
-    </div>
-    <div class="output-area">
-      <div class="output-placeholder" id="outputPlaceholder">
-        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
-        </svg>
-        Kết quả sẽ hiển thị ở đây
-      </div>
-      <pre class="output-text" id="outputText" style="display:none"></pre>
-    </div>
-    <div class="log-area" id="logArea"></div>
-    <div class="status-bar">
-      <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">Sẵn sàng</span>
-      <button class="btn btn-ghost copy-btn" id="copyBtn" onclick="copyOutput()" style="display:none">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        Copy
-      </button>
-    </div>
-  </div>
-
-  <!-- Info -->
-  <div class="card" style="padding: 14px 16px;">
-    <div style="font-size: 12px; color: var(--muted); line-height: 1.7;">
-      <strong style="color: var(--text); display: block; margin-bottom: 6px;">Hướng dẫn</strong>
-      <b>Full mode</b> — Devirtualize hoàn toàn, phục hồi code gốc (mất 5s–3 phút tuỳ script).<br>
-      <b>Trace mode</b> — Chỉ chạy execution trace, nhanh ~2 giây, thích hợp xem script làm gì.
-    </div>
+  <!-- INFO -->
+  <div class="card info-card">
+    <strong>Hướng dẫn sử dụng</strong>
+    <div class="info-row"><span class="info-label lbl-v15">V15</span> Luraph V15 — devirtualize hoàn toàn, phục hồi code gốc (5s–3 phút)</div>
+    <div class="info-row"><span class="info-label lbl-v14">V14</span> Luraph V14.x / Moonveil — unpack VM + bytecode tự động</div>
+    <div class="info-row"><span class="info-label lbl-full">Full</span> Chạy full pipeline, output Lua đọc được</div>
+    <div class="info-row"><span class="info-label lbl-trace">Trace</span> Nhanh ~2s, chỉ xem script làm gì không devirt hoàn toàn</div>
   </div>
 </main>
 
 <div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept=".lua,.luau,.txt" onchange="handleFileInput(event)">
 
 <script>
 let mode = 'full';
 let running = false;
 let detectTimer = null;
 
-const inputEl = document.getElementById('inputScript');
-const outputTextEl = document.getElementById('outputText');
-const outputPlaceholderEl = document.getElementById('outputPlaceholder');
-const statusDot = document.getElementById('statusDot');
-const statusText = document.getElementById('statusText');
-const runBtn = document.getElementById('runBtn');
-const copyBtn = document.getElementById('copyBtn');
-const detectBadge = document.getElementById('detectBadge');
-const logArea = document.getElementById('logArea');
-const statsRow = document.getElementById('statsRow');
+const $ = id => document.getElementById(id);
+const inputEl = $('inputScript');
+const outputTextEl = $('outputText');
+const outputPlaceholderEl = $('outputPlaceholder');
+const statusDot = $('statusDot');
+const statusText = $('statusText');
+const runBtn = $('runBtn');
+const detectBadge = $('detectBadge');
+const logArea = $('logArea');
+const statsRow = $('statsRow');
 
+// ── MODE ──
 function setMode(m) {
   mode = m;
-  document.getElementById('modeFullBtn').classList.toggle('active', m === 'full');
-  document.getElementById('modeTraceBtn').classList.toggle('active', m === 'trace');
+  $('modeFullBtn').classList.toggle('active', m === 'full');
+  $('modeTraceBtn').classList.toggle('active', m === 'trace');
 }
 
+// ── STATUS ──
 function setStatus(state, text) {
   statusDot.className = 'status-dot ' + state;
   statusText.textContent = text;
 }
 
+// ── OUTPUT ──
 function showOutput(text) {
   outputPlaceholderEl.style.display = 'none';
   outputTextEl.style.display = 'block';
   outputTextEl.textContent = text;
+  $('copyBtn').style.display = '';
+  $('dlBtn').style.display = '';
 }
-
 function hideOutput() {
   outputPlaceholderEl.style.display = '';
   outputTextEl.style.display = 'none';
-  copyBtn.style.display = 'none';
+  $('copyBtn').style.display = 'none';
+  $('dlBtn').style.display = 'none';
   statsRow.style.display = 'none';
   logArea.classList.remove('show');
+  logArea.textContent = '';
 }
 
+// ── CLEAR ──
 function clearInput() {
   inputEl.value = '';
   hideOutput();
   detectBadge.className = 'detect-badge';
-  detectBadge.textContent = '—';
+  detectBadge.textContent = '';
   setStatus('', 'Sẵn sàng');
 }
 
+// ── FILE OPEN ──
+function triggerFileOpen() { $('fileInput').click(); }
+function handleFileInput(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { inputEl.value = ev.target.result; triggerDetect(); };
+  reader.readAsText(file, 'utf-8');
+  e.target.value = '';
+}
+
+// ── DRAG & DROP ──
+const dropzone = $('dropzone');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { inputEl.value = ev.target.result; triggerDetect(); };
+  reader.readAsText(file, 'utf-8');
+});
+
+// ── PASTE ──
 async function pasteInput() {
   try {
     const text = await navigator.clipboard.readText();
     inputEl.value = text;
     triggerDetect();
-  } catch {
-    showToast('Không thể paste — dùng Ctrl+V');
-  }
+  } catch { showToast('Dùng Ctrl+V để paste'); }
 }
 
-function triggerDetect() {
-  clearTimeout(detectTimer);
-  detectTimer = setTimeout(detectScript, 600);
-}
+// ── DETECT ──
+function triggerDetect() { clearTimeout(detectTimer); detectTimer = setTimeout(detectScript, 500); }
+inputEl.addEventListener('input', triggerDetect);
 
 async function detectScript() {
   const source = inputEl.value.trim();
@@ -493,13 +452,22 @@ async function detectScript() {
       body: JSON.stringify({ source }),
     });
     const data = await r.json();
-    detectBadge.className = 'detect-badge show ' + (data.plugin === 'luraph_v15' ? 'luraph' : 'unknown');
-    detectBadge.textContent = data.label + ' (' + (data.confidence * 100).toFixed(0) + '%)';
+    const name = data.plugin || '';
+    const pct = data.confidence ? (data.confidence * 100).toFixed(0) + '%' : '';
+    if (name.includes('v15') || name.includes('V15')) {
+      detectBadge.className = 'detect-badge show v15';
+      detectBadge.textContent = 'Luraph V15 ' + pct;
+    } else if (name.includes('v14') || name.includes('V14') || name.includes('vmp') || name.includes('moonveil')) {
+      detectBadge.className = 'detect-badge show v14';
+      detectBadge.textContent = 'Luraph V14 ' + pct;
+    } else {
+      detectBadge.className = 'detect-badge show unknown';
+      detectBadge.textContent = (data.label || 'Unknown') + ' ' + pct;
+    }
   } catch {}
 }
 
-inputEl.addEventListener('input', triggerDetect);
-
+// ── RUN ──
 async function runDeobf() {
   if (running) return;
   const source = inputEl.value.trim();
@@ -508,9 +476,8 @@ async function runDeobf() {
   running = true;
   runBtn.disabled = true;
   runBtn.innerHTML = '<div class="spinner"></div> Đang xử lý...';
-  setStatus('running', mode === 'trace' ? 'Đang chạy trace mode (~2s)...' : 'Đang deobfuscate (có thể mất vài phút)...');
+  setStatus('running', mode === 'trace' ? 'Trace mode (~2s)...' : 'Đang deobfuscate, vui lòng chờ...');
   hideOutput();
-  logArea.textContent = '';
 
   const start = Date.now();
   try {
@@ -527,44 +494,56 @@ async function runDeobf() {
       showOutput('-- ERROR: ' + data.error + '\n\n' + (data.log || ''));
       if (data.log) { logArea.textContent = data.log; logArea.classList.add('show'); }
     } else {
-      setStatus('done', `Hoàn thành trong ${elapsed}s`);
+      const ver = data.mode === 'v14' ? 'V14' : 'V15';
+      setStatus('done', `✓ ${ver} · ${elapsed}s`);
       showOutput(data.output);
-      copyBtn.style.display = '';
 
-      // Stats
       const lines = data.output.split('\n').length;
-      const chars = data.output.length;
+      const kb = (data.output.length / 1024).toFixed(1);
       statsRow.style.display = 'flex';
       statsRow.innerHTML =
+        `<span class="stat-chip v">${ver}</span>` +
         `<span class="stat-chip">${lines} dòng</span>` +
-        `<span class="stat-chip">${(chars/1024).toFixed(1)} KB</span>` +
+        `<span class="stat-chip">${kb} KB</span>` +
         `<span class="stat-chip">${elapsed}s</span>`;
 
       if (data.log) { logArea.textContent = data.log; logArea.classList.add('show'); }
     }
   } catch (e) {
     setStatus('error', 'Lỗi kết nối server');
-    showOutput('-- Không thể kết nối server: ' + e.message);
+    showOutput('-- Không thể kết nối: ' + e.message);
   } finally {
     running = false;
     runBtn.disabled = false;
-    runBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z" fill="currentColor" stroke="none"/></svg> Deobfuscate';
+    runBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Run';
   }
 }
 
+// ── COPY ──
 async function copyOutput() {
   const text = outputTextEl.textContent;
   if (!text) return;
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast('Đã copy!');
-  } catch {
-    showToast('Copy thất bại');
-  }
+  try { await navigator.clipboard.writeText(text); showToast('Đã copy!'); }
+  catch { showToast('Copy thất bại'); }
 }
 
+// ── DOWNLOAD ──
+function downloadOutput() {
+  const text = outputTextEl.textContent;
+  if (!text) return;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'deobf_output_' + Date.now() + '.lua';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Đã download!');
+}
+
+// ── TOAST ──
 function showToast(msg) {
-  const t = document.getElementById('toast');
+  const t = $('toast');
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
