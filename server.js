@@ -279,34 +279,62 @@ function runDeobVMP(source) {
       env: { ...process.env, PYTHONPATH: VMP_DIR }
     };
 
-    // ── Step 1: inspect → extract VM profile ──────────────────────────────
-    const ins = await execPy(pythonBin,
+    // ── Step 1: probe — detect which pipeline to use ─────────────────────
+    const probe = await execPy(pythonBin,
       ['-m', 'luauvmp', 'inspect', inFile, '-o', profFile],
       pyOpts
     );
 
-    let deobArgs;
-    if (fs.existsSync(profFile)) {
-      // profile generated — use it
-      deobArgs = ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile, '--profile', profFile];
-    } else {
-      // no profile (not a VMP file or already plain) — try deobf anyway
-      deobArgs = ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile];
-    }
+    const isLuraphFull = (probe.stderr + probe.stdout).includes('luraph-full')
+                      || (probe.stderr + probe.stdout).includes('two-stream');
 
-    // ── Step 2: deobf ─────────────────────────────────────────────────────
-    const deob = await execPy(pythonBin, deobArgs, pyOpts);
+    let deob;
+    if (isLuraphFull) {
+      // ── Luraph v14.x two-stream → use luraph-full pipeline ─────────────
+      const outDir = path.join(tmpDir, 'recovered');
+      deob = await execPy(pythonBin,
+        ['-m', 'luauvmp', 'luraph-full', inFile, '-o', outDir],
+        pyOpts
+      );
+      // luraph-full writes multiple files; grab the main one
+      try {
+        const files = fs.readdirSync(outDir).filter(f => f.endsWith('.lua') || f.endsWith('.luau'));
+        if (files.length > 0) {
+          const mainFile = files.find(f => f.includes('main') || f.includes('output')) || files[0];
+          const fullOut = fs.readFileSync(path.join(outDir, mainFile), 'utf8');
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+          return resolve({ ok: true, result: fullOut, stderr: deob.stderr });
+        }
+      } catch {}
+    } else {
+      // ── luau-vmp script → inspect profile then deobf ───────────────────
+      const noPayload = (probe.stderr + probe.stdout).includes('no base64 payload found');
+      if (noPayload && !fs.existsSync(profFile)) {
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+        return resolve({
+          ok: false,
+          error: 'File không phải luau-vmp format.\nNếu là Luraph v15 → dùng tab "Luraph V15 Master".',
+          stderr: probe.stderr
+        });
+      }
+
+      const deobArgs = fs.existsSync(profFile)
+        ? ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile, '--profile', profFile]
+        : ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile];
+
+      deob = await execPy(pythonBin, deobArgs, pyOpts);
+    }
 
     let result = null;
     try { if (fs.existsSync(outFile)) result = fs.readFileSync(outFile, 'utf8'); } catch {}
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
 
-    const combinedStderr = [ins.stderr, deob.stderr].filter(Boolean).join('\n--- deobf ---\n');
+    const combinedStderr = [probe.stderr, deob ? deob.stderr : ''].filter(Boolean).join('\n--- deobf ---\n');
 
-    if (deob.err && !result) {
+    if (deob && deob.err && !result) {
       resolve({ ok: false, error: deob.err.message, stderr: combinedStderr });
     } else {
-      resolve({ ok: true, result: result || deob.stdout, stderr: combinedStderr });
+      resolve({ ok: true, result: result || (deob ? deob.stdout : ''), stderr: combinedStderr });
     }
   });
 }
