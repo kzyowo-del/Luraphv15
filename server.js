@@ -244,7 +244,7 @@ function runDeobVMP(source) {
     const outFile = path.join(tmpDir, 'output.lua');
     fs.writeFileSync(inFile, source, 'utf8');
     const args = ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile];
-    execFile('python3', args, {
+    execFile('venv/bin/python3', args, {
       timeout: 120_000,
       maxBuffer: 8 * 1024 * 1024,
       cwd: VMP_DIR,
