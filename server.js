@@ -1,136 +1,222 @@
-const WebSocket = require("ws");
+'use strict';
 
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { execFile } = require('child_process');
 
-const port = process.env.PORT || 3000;
-const wss = new WebSocket.Server({ port });
+const PORT = process.env.PORT || 3000;
+const DEOB_SCRIPT = path.join(__dirname, 'deob.js');
 
-console.log("Hub Chat Server running on port " + port);
+// ─── HTML UI ────────────────────────────────────────────────────────────────
+const HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Luraph V15 Deobfuscator</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0d0d;color:#e0e0e0;font-family:'Courier New',monospace;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 16px}
+  h1{font-size:1.4rem;color:#a78bfa;margin-bottom:6px;letter-spacing:1px}
+  p.sub{color:#666;font-size:.8rem;margin-bottom:24px}
+  textarea{width:100%;max-width:760px;height:240px;background:#111;border:1px solid #333;color:#ccc;padding:12px;font-size:.82rem;border-radius:6px;resize:vertical;outline:none}
+  textarea:focus{border-color:#a78bfa}
+  .row{display:flex;gap:12px;max-width:760px;width:100%;margin-top:10px;flex-wrap:wrap}
+  button{flex:1;padding:10px;background:#a78bfa;color:#000;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:.9rem;letter-spacing:.5px}
+  button:hover{background:#c4b5fd}
+  button.sec{background:#222;color:#a78bfa;border:1px solid #a78bfa}
+  button.sec:hover{background:#2a2a2a}
+  #status{max-width:760px;width:100%;margin-top:14px;font-size:.78rem;color:#888;min-height:18px}
+  #out{width:100%;max-width:760px;height:300px;background:#0a0a0a;border:1px solid #222;color:#7dd3a8;padding:12px;font-size:.8rem;border-radius:6px;resize:vertical;margin-top:10px;display:none}
+  #out.show{display:block}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;margin-left:8px}
+  .ok{background:#134e2a;color:#4ade80}.err{background:#450a0a;color:#f87171}
+</style>
+</head>
+<body>
+<h1>⬡ Luraph V15 Deobfuscator</h1>
+<p class="sub">Paste obfuscated Lua/Luau source below</p>
+<textarea id="src" placeholder="-- paste obfuscated code here..."></textarea>
+<div class="row">
+  <button onclick="run()">Deobfuscate</button>
+  <button class="sec" onclick="detect()">Detect Only</button>
+  <button class="sec" onclick="copy()">Copy Output</button>
+</div>
+<div id="status"></div>
+<textarea id="out" readonly placeholder="output will appear here..."></textarea>
 
-// =============================
-// ROLE CONFIG
-// =============================
-const ADMINS = {
-    owners: ["JJS_TestScript"],
-    staffs: ["lam648291", "gshahwgsydhs"],
-};
+<script>
+const status = document.getElementById('status');
+const out    = document.getElementById('out');
 
-function getRole(username) {
-    if (ADMINS.owners.includes(username)) return "owner";
-    if (ADMINS.staffs.includes(username)) return "staff";
-    return null;
-}
-
-// =============================
-// BAD WORDS FILTER
-// =============================
-const BAD_WORDS = [
-    // English
-    "nigger", "nigga", "niga", "n1gger", "n1gga", "negro",
-    "fuck", "fck", "fuuck", "fvck", "f*ck", "f.u.c.k", "mfer", "motherfucker", "stfu",
-    "shit", "sh1t", "sht", "sh!t", "bullshit",
-    "bitch", "b1tch", "bytch", "biatch", "sonofabitch",
-    "dick", "d1ck", "dik", "penis", "cock", "c0ck", "pecker",
-    "pussy", "cunt",
-    "bastard", "ass", "a55", "asshole", "jackass", "prick",
-	"pornhub", "porn", "p o r n", "porn hub",
-
-	// Vietnam
-    "dịt", "dit", "đit", "đm", "dm", "đcm", "dcm", "đmm", "dmm", "đjt", "djt",
-    "lồn", "l0n", "lon", "l l", "lờ", "cl", "cờ lờ", "vcl", "vclz", "vkl", "vcl",
-    "cặc", "cac", "c4c", "kẹc", "kec", "con cặc", "con cac",
-    "buồi", "buoi", "bùi", "bui", "cu", "c u",
-    "đụ", "du", "đm", "đéo", "deo", "đết", "det",
-    "mẹ mày", "me may", "mẹ m", "me m", "mmsv", "mẹ mài",
-    "bố mày", "bo may", "cha mày", "cha may", "tổ sư", "ông nội mày",
-    "con mẹ", "con me", "thằng chó", "do cho", "đồ chó", "cho de", "chó đẻ",
-    "óc chó", "oc cho", "óc vật", "súc vật", "suc vat", "ngu lìn", "ngu lon",
-    "hãm", "ham", "hãm lồn", "ham lon",
-    "đĩ", "biến thái", "bien thai",
-    "vú", "vu", "đít", "dit", "mông", "mong", "phịch", "phich", "xoạc", "nện",
-	"nứng",
-];
-
-function filterBadWords(text) {
-    let result = text;
-    for (const word of BAD_WORDS) {
-        const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(`\\b${escaped}\\b`, "gi");
-        result = result.replace(regex, "*".repeat(word.length));
+async function run() {
+  const src = document.getElementById('src').value.trim();
+  if (!src) { status.textContent = 'paste some code first'; return; }
+  status.innerHTML = 'running... <span style="color:#facc15">⏳</span>';
+  out.classList.remove('show');
+  try {
+    const r = await fetch('/deobfuscate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ source: src })
+    });
+    const j = await r.json();
+    if (j.error) {
+      status.innerHTML = 'error <span class="badge err">FAIL</span>';
+      out.value = j.error + (j.stderr ? '\\n\\n--- stderr ---\\n' + j.stderr : '');
+    } else {
+      status.innerHTML = 'done <span class="badge ok">OK</span>' + (j.obfuscator ? ' · detected: ' + j.obfuscator : '');
+      out.value = j.result;
     }
-    return result;
+    out.classList.add('show');
+  } catch(e) {
+    status.textContent = 'network error: ' + e.message;
+  }
 }
 
-// =============================
-// STATE
-// =============================
-// rooms[roomId]  = [ws, ...]
-let rooms   = {};
-// =============================
-// BROADCAST ONLINE COUNT
-// =============================
-function broadcastOnline(room) {
-    if (!rooms[room]) return;
-    const active = rooms[room].filter(c => c.readyState === WebSocket.OPEN);
-    const count  = active.length;
-    const payload = JSON.stringify({ type: "online_count", count });
-    active.forEach(c => c.send(payload));
-    console.log(`[Room ${room}] Online: ${count}`);
+async function detect() {
+  const src = document.getElementById('src').value.trim();
+  if (!src) { status.textContent = 'paste some code first'; return; }
+  status.textContent = 'detecting...';
+  try {
+    const r = await fetch('/detect', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ source: src })
+    });
+    const j = await r.json();
+    status.innerHTML = j.error
+      ? 'error: ' + j.error
+      : 'detected: <strong style="color:#a78bfa">' + j.obfuscator + '</strong> (confidence: ' + j.confidence + ')';
+  } catch(e) {
+    status.textContent = 'network error: ' + e.message;
+  }
 }
 
-// =============================
-// CONNECTION
-// =============================
-wss.on("connection", function(ws) {
-    let currentRoom = null;
-    let currentUser = null;
+function copy() {
+  const v = out.value;
+  if (!v) return;
+  navigator.clipboard.writeText(v).then(() => {
+    status.textContent = 'copied to clipboard';
+  });
+}
 
-    ws.on("message", function(data) {
-        try {
-            const msg = JSON.parse(data);
+document.getElementById('src').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') run();
+});
+</script>
+</body>
+</html>`;
 
-            // ---- JOIN ----
-            if (msg.type === "join") {
-                currentRoom = msg.room;
-                currentUser = msg.user || "Unknown";
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', c => { data += c; if (data.length > 4 * 1024 * 1024) reject(new Error('body too large')); });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+}
 
-                if (!rooms[currentRoom])   rooms[currentRoom]   = [];
+function json(res, code, obj) {
+  const body = JSON.stringify(obj);
+  res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.end(body);
+}
 
-                rooms[currentRoom].push(ws);
+function runDeob(source, flags = []) {
+  return new Promise((resolve) => {
+    const tmpDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'deob_srv_'));
+    const inFile  = path.join(tmpDir, 'input.lua');
+    const outFile = path.join(tmpDir, 'output.lua');
 
-                broadcastOnline(currentRoom);
-            }
+    fs.writeFileSync(inFile, source, 'latin1');
 
-            // ---- CHAT ----
-            if (msg.type === "chat" && currentRoom) {
-                const role    = getRole(msg.user);   // "owner" | "staff" | null
-                const filtered = filterBadWords(msg.text || "");
+    const args = [DEOB_SCRIPT, inFile, '-o', outFile, ...flags];
+    const proc = execFile('node', args, { timeout: 120_000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout, stderr) => {
+      let result = null;
+      try { if (fs.existsSync(outFile)) result = fs.readFileSync(outFile, 'utf8'); } catch {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
 
-                const payload = JSON.stringify({
-                    type: "chat",
-                    user: msg.user,      // tên sạch — client tự render tag
-                    role: role,          // client dùng để hiện [OWNER]/[STAFF] + màu
-                    text: filtered,
-                });
-
-                rooms[currentRoom].forEach(c => {
-                    if (c.readyState === WebSocket.OPEN) c.send(payload);
-                });
-            }
-
-        } catch (err) {
-            console.log("Invalid message:", err.message);
-        }
+      if (err && !result) {
+        resolve({ ok: false, error: err.message, stderr });
+      } else {
+        resolve({ ok: true, result: result || stdout, stderr });
+      }
     });
+  });
+}
 
-    ws.on("close", function() {
-        if (currentRoom && rooms[currentRoom]) {
-            rooms[currentRoom] = rooms[currentRoom].filter(c => c !== ws);
+function runDetect(source) {
+  return new Promise((resolve) => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deob_det_'));
+    const inFile = path.join(tmpDir, 'input.lua');
+    fs.writeFileSync(inFile, source, 'latin1');
 
-            broadcastOnline(currentRoom);
-
-            if (rooms[currentRoom].length === 0) {
-                delete rooms[currentRoom];
-            }
-        }
+    execFile('node', [DEOB_SCRIPT, inFile, '--detect'], { timeout: 15_000 }, (err, stdout, stderr) => {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      if (err && !stdout) return resolve({ ok: false, error: err.message });
+      const parts = stdout.trim().split('\t');
+      resolve({ ok: true, name: parts[0] || '', confidence: parts[1] || '0', label: parts[2] || '' });
     });
+  });
+}
+
+// ─── SERVER ────────────────────────────────────────────────────────────────
+const server = http.createServer(async (req, res) => {
+  const { method, url } = req;
+
+  // CORS preflight
+  if (method === 'OPTIONS') {
+    res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST,GET,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' });
+    return res.end();
+  }
+
+  // UI
+  if (method === 'GET' && (url === '/' || url === '/index.html')) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    return res.end(HTML);
+  }
+
+  // Health check
+  if (method === 'GET' && url === '/health') {
+    return json(res, 200, { status: 'ok' });
+  }
+
+  // POST /deobfuscate
+  if (method === 'POST' && url === '/deobfuscate') {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: 'invalid JSON' }); }
+    if (!body.source || typeof body.source !== 'string') return json(res, 400, { error: 'missing source' });
+
+    const flags = [];
+    if (body.noDevirt)     flags.push('--no-devirt');
+    if (body.noFold)       flags.push('--no-fold');
+    if (body.strings)      flags.push('--strings');
+    if (body.keepHarness)  flags.push('--keep-harness');
+    if (body.keepPreamble) flags.push('--keep-preamble');
+
+    const r = await runDeob(body.source, flags);
+    if (!r.ok) return json(res, 500, { error: r.error, stderr: r.stderr });
+    return json(res, 200, { result: r.result, stderr: r.stderr });
+  }
+
+  // POST /detect
+  if (method === 'POST' && url === '/detect') {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: 'invalid JSON' }); }
+    if (!body.source) return json(res, 400, { error: 'missing source' });
+
+    const r = await runDetect(body.source);
+    if (!r.ok) return json(res, 500, { error: r.error });
+    return json(res, 200, { obfuscator: r.label || r.name, confidence: r.confidence });
+  }
+
+  json(res, 404, { error: 'not found' });
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  process.stderr.write(`[*] server listening on 0.0.0.0:${PORT}\n`);
 });
