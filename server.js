@@ -1,175 +1,136 @@
-'use strict';
+const WebSocket = require("ws");
 
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execFile, spawn } = require('child_process');
-const detectModule = require('./src/detect');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
+const wss = new WebSocket.Server({ port });
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+console.log("Hub Chat Server running on port " + port);
 
-app.get('/api/health', (_, res) => res.json({ ok: true }));
+// =============================
+// ROLE CONFIG
+// =============================
+const ADMINS = {
+    owners: ["JJS_TestScript"],
+    staffs: ["lam648291", "gshahwgsydhs"],
+};
 
-app.post('/api/detect', (req, res) => {
-  const { source } = req.body;
-  if (!source || typeof source !== 'string') {
-    return res.status(400).json({ error: 'No source provided' });
-  }
-  try {
-    const { plugin, confidence } = detectModule.detect(source);
-    res.json({ plugin: plugin.name, label: plugin.label, confidence });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ── V14 engine via luauvmp ──────────────────────────────────────────────────
-function runV14(inputPath, outputDir) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('/app/venv/bin/python3', [
-      '-m', 'luauvmp',
-      'luraph',
-      inputPath,
-      '--output', path.join(outputDir, 'v14out'),
-    ], {
-      cwd: path.join(__dirname, 'luauvmp-engine', 'luau-vmp-deobf-main'),
-      env: { ...process.env },
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    const killer = setTimeout(() => {
-      proc.kill('SIGKILL');
-      reject(new Error('V14_TIMEOUT'));
-    }, 30000);
-
-    proc.stdout.on('data', d => stdout += d.toString());
-    proc.stderr.on('data', d => stderr += d.toString());
-
-    proc.on('close', code => {
-      clearTimeout(killer);
-      if (code !== 0) return reject(new Error('V14_FAIL: ' + stderr.trim()));
-      resolve({ stdout, stderr });
-    });
-
-    proc.on('error', err => {
-      clearTimeout(killer);
-      reject(err);
-    });
-  });
+function getRole(username) {
+    if (ADMINS.owners.includes(username)) return "owner";
+    if (ADMINS.staffs.includes(username)) return "staff";
+    return null;
 }
 
-// Detect V14 bằng python — gọi luraph.detect()
-function detectV14(inputPath) {
-  return new Promise((resolve) => {
-    const script = `
-import sys
-sys.path.insert(0, '.')
-from luauvmp.luraph import detect
-with open(sys.argv[1], encoding='utf-8', errors='surrogateescape') as f:
-    src = f.read()
-print('v14' if detect(src) else 'v15')
-`;
-    const tmpScript = path.join(os.tmpdir(), '_detect_v14.py');
-    fs.writeFileSync(tmpScript, script);
+// =============================
+// BAD WORDS FILTER
+// =============================
+const BAD_WORDS = [
+    // English
+    "nigger", "nigga", "niga", "n1gger", "n1gga", "negro",
+    "fuck", "fck", "fuuck", "fvck", "f*ck", "f.u.c.k", "mfer", "motherfucker", "stfu",
+    "shit", "sh1t", "sht", "sh!t", "bullshit",
+    "bitch", "b1tch", "bytch", "biatch", "sonofabitch",
+    "dick", "d1ck", "dik", "penis", "cock", "c0ck", "pecker",
+    "pussy", "cunt",
+    "bastard", "ass", "a55", "asshole", "jackass", "prick",
+	"pornhub", "porn", "p o r n", "porn hub",
 
-    const proc = spawn('/app/venv/bin/python3', [tmpScript, inputPath], {
-      cwd: path.join(__dirname, 'luauvmp-engine', 'luau-vmp-deobf-main'),
-    });
+	// Vietnam
+    "dịt", "dit", "đit", "đm", "dm", "đcm", "dcm", "đmm", "dmm", "đjt", "djt",
+    "lồn", "l0n", "lon", "l l", "lờ", "cl", "cờ lờ", "vcl", "vclz", "vkl", "vcl",
+    "cặc", "cac", "c4c", "kẹc", "kec", "con cặc", "con cac",
+    "buồi", "buoi", "bùi", "bui", "cu", "c u",
+    "đụ", "du", "đm", "đéo", "deo", "đết", "det",
+    "mẹ mày", "me may", "mẹ m", "me m", "mmsv", "mẹ mài",
+    "bố mày", "bo may", "cha mày", "cha may", "tổ sư", "ông nội mày",
+    "con mẹ", "con me", "thằng chó", "do cho", "đồ chó", "cho de", "chó đẻ",
+    "óc chó", "oc cho", "óc vật", "súc vật", "suc vat", "ngu lìn", "ngu lon",
+    "hãm", "ham", "hãm lồn", "ham lon",
+    "đĩ", "biến thái", "bien thai",
+    "vú", "vu", "đít", "dit", "mông", "mong", "phịch", "phich", "xoạc", "nện",
+	"nứng",
+];
 
-    let out = '';
-    proc.stdout.on('data', d => out += d.toString());
-    proc.on('close', () => resolve(out.trim() === 'v14'));
-    proc.on('error', () => resolve(false)); // fallback V15
-  });
-}
-// ───────────────────────────────────────────────────────────────────────────
-
-app.post('/api/deobfuscate', async (req, res) => {
-  const { source, mode = 'full' } = req.body;
-  if (!source || typeof source !== 'string') {
-    return res.status(400).json({ error: 'No source provided' });
-  }
-
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deobf_web_'));
-  const inputPath = path.join(tmpDir, 'input.lua');
-  const outputPath = path.join(tmpDir, 'output.lua');
-
-  try {
-    fs.writeFileSync(inputPath, source, 'latin1');
-
-    // ── Detect version ──────────────────────────────────────────────────────
-    const isV14 = await detectV14(inputPath);
-
-    if (isV14) {
-      // ── V14 path ──────────────────────────────────────────────────────────
-      const v14Result = await runV14(inputPath, tmpDir);
-
-      // luraph command viết ra: <output>.vm.lua và <output>.bytecode.bin
-      const vmFile = path.join(tmpDir, 'v14out.vm.lua');
-      const bytecodeFile = path.join(tmpDir, 'v14out.bytecode.bin');
-
-      if (!fs.existsSync(vmFile)) {
-        return res.status(500).json({
-          error: 'V14 engine produced no output',
-          log: v14Result.stderr,
-        });
-      }
-
-      const vmSource = fs.readFileSync(vmFile, 'utf8');
-      return res.json({
-        output: vmSource,
-        log: v14Result.stdout + v14Result.stderr,
-        mode: 'v14',
-        bytecode: fs.existsSync(bytecodeFile)
-          ? fs.readFileSync(bytecodeFile).toString('base64')
-          : null,
-      });
+function filterBadWords(text) {
+    let result = text;
+    for (const word of BAD_WORDS) {
+        const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`\\b${escaped}\\b`, "gi");
+        result = result.replace(regex, "*".repeat(word.length));
     }
+    return result;
+}
 
-    // ── V15 path (original) ────────────────────────────────────────────────
-    const args = [
-      path.join(__dirname, 'deob.js'),
-      inputPath,
-      '-o', outputPath,
-    ];
-    if (mode === 'trace') args.push('--no-devirt');
+// =============================
+// STATE
+// =============================
+// rooms[roomId]  = [ws, ...]
+let rooms   = {};
+// =============================
+// BROADCAST ONLINE COUNT
+// =============================
+function broadcastOnline(room) {
+    if (!rooms[room]) return;
+    const active = rooms[room].filter(c => c.readyState === WebSocket.OPEN);
+    const count  = active.length;
+    const payload = JSON.stringify({ type: "online_count", count });
+    active.forEach(c => c.send(payload));
+    console.log(`[Room ${room}] Online: ${count}`);
+}
 
-    const timeout = mode === 'trace' ? 60000 : 600000;
+// =============================
+// CONNECTION
+// =============================
+wss.on("connection", function(ws) {
+    let currentRoom = null;
+    let currentUser = null;
 
-    const result = await new Promise((resolve, reject) => {
-      execFile(process.execPath, args, {
-        timeout,
-        maxBuffer: 20 * 1024 * 1024,
-      }, (err, stdout, stderr) => {
-        if (err && !fs.existsSync(outputPath)) {
-          reject(new Error(stderr || err.message));
-        } else {
-          resolve({ stdout, stderr });
+    ws.on("message", function(data) {
+        try {
+            const msg = JSON.parse(data);
+
+            // ---- JOIN ----
+            if (msg.type === "join") {
+                currentRoom = msg.room;
+                currentUser = msg.user || "Unknown";
+
+                if (!rooms[currentRoom])   rooms[currentRoom]   = [];
+
+                rooms[currentRoom].push(ws);
+
+                broadcastOnline(currentRoom);
+            }
+
+            // ---- CHAT ----
+            if (msg.type === "chat" && currentRoom) {
+                const role    = getRole(msg.user);   // "owner" | "staff" | null
+                const filtered = filterBadWords(msg.text || "");
+
+                const payload = JSON.stringify({
+                    type: "chat",
+                    user: msg.user,      // tên sạch — client tự render tag
+                    role: role,          // client dùng để hiện [OWNER]/[STAFF] + màu
+                    text: filtered,
+                });
+
+                rooms[currentRoom].forEach(c => {
+                    if (c.readyState === WebSocket.OPEN) c.send(payload);
+                });
+            }
+
+        } catch (err) {
+            console.log("Invalid message:", err.message);
         }
-      });
     });
 
-    if (!fs.existsSync(outputPath)) {
-      return res.status(500).json({ error: 'No output generated', log: result.stderr });
-    }
+    ws.on("close", function() {
+        if (currentRoom && rooms[currentRoom]) {
+            rooms[currentRoom] = rooms[currentRoom].filter(c => c !== ws);
 
-    const output = fs.readFileSync(outputPath, 'utf8');
-    res.json({ output, log: result.stderr, mode });
+            broadcastOnline(currentRoom);
 
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  } finally {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`Luraph Deobfuscator Web running on http://localhost:${PORT}`);
+            if (rooms[currentRoom].length === 0) {
+                delete rooms[currentRoom];
+            }
+        }
+    });
 });
