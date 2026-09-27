@@ -237,14 +237,34 @@ function runDeobV15(source, flags = []) {
   });
 }
 
+// ── resolve python binary: venv-local → system fallback ───────────────────
+function resolvePython() {
+  const candidates = [
+    path.join(VMP_DIR, 'venv', 'bin', 'python3'),
+    path.join(VMP_DIR, 'venv', 'bin', 'python'),
+    path.join(VMP_DIR, '.venv', 'bin', 'python3'),
+    path.join(VMP_DIR, '.venv', 'bin', 'python'),
+    'python3',
+    'python',
+  ];
+  for (const p of candidates) {
+    if (!path.isAbsolute(p)) return p; // system PATH — OS will find it
+    try { fs.accessSync(p, fs.constants.X_OK); return p; } catch {}
+  }
+  return 'python3';
+}
+
 function runDeobVMP(source) {
   return new Promise((resolve) => {
     const tmpDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'deob_vmp_'));
     const inFile  = path.join(tmpDir, 'input.lua');
     const outFile = path.join(tmpDir, 'output.lua');
     fs.writeFileSync(inFile, source, 'utf8');
+
+    const pythonBin = resolvePython();
     const args = ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile];
-    execFile('venv/bin/python3', args, {
+
+    execFile(pythonBin, args, {
       timeout: 120_000,
       maxBuffer: 8 * 1024 * 1024,
       cwd: VMP_DIR,
