@@ -1,8 +1,14 @@
 [phases.setup]
-nixPkgs = ["nodejs", "python3", "git", "cmake", "gcc"]
+nixPkgs = ["nodejs", "unzip", "curl"]
 
 [phases.build]
-cmds = ["npm install", "python3 core/build_luau.py"]
+cmds = [
+  "npm install",
+  "mkdir -p bin",
+  "curl -sL https://github.com/luau-lang/luau/releases/download/0.639/luau-ubuntu.zip -o /tmp/luau.zip",
+  "unzip -o /tmp/luau.zip -d bin/",
+  "chmod +x bin/luau bin/luau-ast"
+]
 
 [start]
 cmd = "node server.js"
