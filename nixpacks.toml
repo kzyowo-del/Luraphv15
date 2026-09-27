@@ -1,10 +1,12 @@
 [phases.setup]
-nixPkgs = ["nodejs", "python3", "python3Packages.pip", "python3Packages.zstandard", "cmake", "gcc"]
+nixPkgs = ["nodejs", "python3", "cmake", "gcc"]
 
 [phases.install]
 cmds = [
   "npm install",
-  "pip3 install ./luauvmp-engine/luau-vmp-deobf-main --no-deps"
+  "python3 -m venv /app/venv",
+  "/app/venv/bin/pip install zstandard",
+  "/app/venv/bin/pip install ./luauvmp-engine/luau-vmp-deobf-main --no-deps"
 ]
 
 [start]
