@@ -292,8 +292,10 @@ function runDeobVMP(source) {
     if (isLuraphFull) {
       // ── Luraph v14.x two-stream → use luraph-full pipeline ─────────────
       const outDir = path.join(tmpDir, 'recovered');
+      const luneBin = path.join(__dirname, 'bin', 'lune');
+      const luneArg = (() => { try { fs.accessSync(luneBin, fs.constants.X_OK); return luneBin; } catch { return 'lune'; } })();
       deob = await execPy(pythonBin,
-        ['-m', 'luauvmp', 'luraph-full', inFile, '-o', outDir],
+        ['-m', 'luauvmp', 'luraph-full', inFile, '-o', outDir, '--runtime', luneArg, '--no-lua-expert', '--force'],
         pyOpts
       );
       // luraph-full writes multiple files; grab the main one
