@@ -5,9 +5,15 @@ nixPkgs = ["nodejs", "python3", "unzip", "curl"]
 cmds = [
   "npm install",
   "mkdir -p bin",
+
   "curl -sL https://github.com/luau-lang/luau/releases/download/0.639/luau-ubuntu.zip -o /tmp/luau.zip",
   "unzip -o /tmp/luau.zip -d bin/",
   "chmod +x bin/luau bin/luau-ast",
+
+  "curl -sL $(curl -s https://api.github.com/repos/lune-org/lune/releases/latest | python3 -c \"import sys,json;a=[x for x in json.load(sys.stdin)['assets'] if 'linux' in x['name'].lower() and 'x86_64' in x['name'] and x['name'].endswith('.zip')];print(a[0]['browser_download_url'])\") -o /tmp/lune.zip",
+  "unzip -o /tmp/lune.zip lune -d bin/ || unzip -o /tmp/lune.zip -d /tmp/lune_extracted && cp /tmp/lune_extracted/lune bin/ 2>/dev/null || true",
+  "chmod +x bin/lune",
+
   "python3 -m venv venv",
   "venv/bin/pip install zstandard",
   "venv/bin/pip install -e luauvmp-engine/luau-vmp-deobf-main"
