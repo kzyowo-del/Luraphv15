@@ -237,13 +237,14 @@ function runDeobV15(source, flags = []) {
   });
 }
 
-// ── resolve python binary: venv-local → system fallback ───────────────────
+// ── resolve python binary: root venv → vmp venv → system fallback ─────────
 function resolvePython() {
   const candidates = [
-    path.join(VMP_DIR, 'venv', 'bin', 'python3'),
+    path.join(__dirname, 'venv', 'bin', 'python3'),       // root venv (nixpacks)
+    path.join(__dirname, 'venv', 'bin', 'python'),
+    path.join(VMP_DIR, 'venv', 'bin', 'python3'),         // vmp-local venv
     path.join(VMP_DIR, 'venv', 'bin', 'python'),
     path.join(VMP_DIR, '.venv', 'bin', 'python3'),
-    path.join(VMP_DIR, '.venv', 'bin', 'python'),
     'python3',
     'python',
   ];
