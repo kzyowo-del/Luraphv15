@@ -255,28 +255,59 @@ function resolvePython() {
   return 'python3';
 }
 
-function runDeobVMP(source) {
+function execPy(pythonBin, args, opts) {
   return new Promise((resolve) => {
-    const tmpDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'deob_vmp_'));
-    const inFile  = path.join(tmpDir, 'input.lua');
-    const outFile = path.join(tmpDir, 'output.lua');
+    execFile(pythonBin, args, opts, (err, stdout, stderr) => {
+      resolve({ err, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+function runDeobVMP(source) {
+  return new Promise(async (resolve) => {
+    const tmpDir    = fs.mkdtempSync(path.join(os.tmpdir(), 'deob_vmp_'));
+    const inFile    = path.join(tmpDir, 'input.lua');
+    const outFile   = path.join(tmpDir, 'output.lua');
+    const profFile  = path.join(tmpDir, 'profile.json');
     fs.writeFileSync(inFile, source, 'utf8');
 
     const pythonBin = resolvePython();
-    const args = ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile];
-
-    execFile(pythonBin, args, {
+    const pyOpts = {
       timeout: 120_000,
       maxBuffer: 8 * 1024 * 1024,
       cwd: VMP_DIR,
       env: { ...process.env, PYTHONPATH: VMP_DIR }
-    }, (err, stdout, stderr) => {
-      let result = null;
-      try { if (fs.existsSync(outFile)) result = fs.readFileSync(outFile, 'utf8'); } catch {}
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
-      if (err && !result) resolve({ ok: false, error: err.message, stderr: stderr || stdout });
-      else resolve({ ok: true, result: result || stdout, stderr });
-    });
+    };
+
+    // ── Step 1: inspect → extract VM profile ──────────────────────────────
+    const ins = await execPy(pythonBin,
+      ['-m', 'luauvmp', 'inspect', inFile, '-o', profFile],
+      pyOpts
+    );
+
+    let deobArgs;
+    if (fs.existsSync(profFile)) {
+      // profile generated — use it
+      deobArgs = ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile, '--profile', profFile];
+    } else {
+      // no profile (not a VMP file or already plain) — try deobf anyway
+      deobArgs = ['-m', 'luauvmp', 'deobf', inFile, '-o', outFile];
+    }
+
+    // ── Step 2: deobf ─────────────────────────────────────────────────────
+    const deob = await execPy(pythonBin, deobArgs, pyOpts);
+
+    let result = null;
+    try { if (fs.existsSync(outFile)) result = fs.readFileSync(outFile, 'utf8'); } catch {}
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+
+    const combinedStderr = [ins.stderr, deob.stderr].filter(Boolean).join('\n--- deobf ---\n');
+
+    if (deob.err && !result) {
+      resolve({ ok: false, error: deob.err.message, stderr: combinedStderr });
+    } else {
+      resolve({ ok: true, result: result || deob.stdout, stderr: combinedStderr });
+    }
   });
 }
 
